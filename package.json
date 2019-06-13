@@ -33,7 +33,7 @@
     "express": "latest",
     "gulp-insert": "latest",
     "gulp-tslint": "latest",
-    "gulp-typescript": "2.12.2",
+    "gulp-typescript": "^5.0.1",
     "mkdirp": "latest",
     "q": "^1.4.1",
     "run-sequence": "latest",
