@@ -413,13 +413,13 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
 
     const doDownloadAndInstall = async () => {
       syncStatusChangeCallback(CodePush.SyncStatus.DOWNLOADING_PACKAGE);
-      const localPackage = await remotePackage.download(syncOptions.pathPrefix, downloadProgressCallback);
+      const localPackage = await remotePackage.download(syncOptions.pathPrefix, syncOptions.bundleFileName, downloadProgressCallback);
 
       // Determine the correct install mode based on whether the update is mandatory or not.
       resolvedInstallMode = localPackage.isMandatory ? syncOptions.mandatoryInstallMode : syncOptions.installMode;
 
       syncStatusChangeCallback(CodePush.SyncStatus.INSTALLING_UPDATE);
-      await localPackage.install(resolvedInstallMode, syncOptions.pathPrefix, syncOptions.minimumBackgroundDuration, () => {
+      await localPackage.install(resolvedInstallMode, syncOptions.pathPrefix, syncOptions.bundleFileName, syncOptions.minimumBackgroundDuration, () => {
         syncStatusChangeCallback(CodePush.SyncStatus.UPDATE_INSTALLED);
       });
 

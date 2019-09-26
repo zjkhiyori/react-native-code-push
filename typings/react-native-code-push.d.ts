@@ -152,6 +152,11 @@ export interface SyncOptions {
      * specific a package path prefix to resolve
      */
     pathPrefix: string;
+
+    /**
+     * specific a package name to resolve
+     */
+    bundleFileName: string;
 }
 
 export interface UpdateDialog {

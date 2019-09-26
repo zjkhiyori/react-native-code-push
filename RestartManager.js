@@ -6,6 +6,7 @@ const RestartManager = (() => {
     let _restartInProgress = false;
     let _restartQueue = [];
     let _pathPrefix = '';
+    let _bundleFileName = '';
 
     function allow() {
         log("Re-allowing restarts");
@@ -13,7 +14,8 @@ const RestartManager = (() => {
 
         if (_restartQueue.length) {
             log("Executing pending restart");
-            restartApp(_restartQueue.shift(1), _pathPrefix);
+            let restart = _restartQueue.shift(1);
+            restartApp(restart.onlyIfUpdateIsPending, restart.pathPrefix, restart.bundleFileName);
         }
     }
 
@@ -26,17 +28,26 @@ const RestartManager = (() => {
         _allowed = false;
     }
 
-    async function restartApp(onlyIfUpdateIsPending = false, pathPrefix) {
+    async function restartApp(onlyIfUpdateIsPending = false, pathPrefix, bundleFileName) {
         _pathPrefix = pathPrefix;
+        _bundleFileName = bundleFileName;
         if (_restartInProgress) {
             log("Restart request queued until the current restart is completed");
-            _restartQueue.push(onlyIfUpdateIsPending);
+            _restartQueue.push({
+                onlyIfUpdateIsPending,
+                pathPrefix,
+                bundleFileName,
+            });
         } else if (!_allowed) {
             log("Restart request queued until restarts are re-allowed");
-            _restartQueue.push(onlyIfUpdateIsPending);
+            _restartQueue.push({
+                onlyIfUpdateIsPending,
+                pathPrefix,
+                bundleFileName,
+            });
         } else {
             _restartInProgress = true;
-            if (await NativeCodePush.restartApp(onlyIfUpdateIsPending, pathPrefix)) {
+            if (await NativeCodePush.restartApp(onlyIfUpdateIsPending, pathPrefix, bundleFileName)) {
                 // The app has already restarted, so there is no need to
                 // process the remaining queued restarts.
                 log("Restarting app");
@@ -45,7 +56,8 @@ const RestartManager = (() => {
 
             _restartInProgress = false;
             if (_restartQueue.length) {
-                restartApp(_restartQueue.shift(1), pathPrefix);
+                let restart = _restartQueue.shift(1);
+                restartApp(restart.onlyIfUpdateIsPending, restart.pathPrefix, restart.bundleFileName);
             }
         }
     }
