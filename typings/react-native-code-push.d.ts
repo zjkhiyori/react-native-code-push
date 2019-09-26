@@ -27,9 +27,10 @@ export interface LocalPackage extends Package {
      * Installs the update by saving it to the location on disk where the runtime expects to find the latest version of the app.
      *
      * @param installMode Indicates when you would like the update changes to take affect for the end-user.
+     * @param pathPrefix bundle path prefix
      * @param minimumBackgroundDuration For resume-based installs, this specifies the number of seconds the app needs to be in the background before forcing a restart. Defaults to 0 if unspecified.
      */
-    install(installMode: CodePush.InstallMode, minimumBackgroundDuration?: number): Promise<void>;
+    install(installMode: CodePush.InstallMode, pathPrefix: string, minimumBackgroundDuration?: number): Promise<void>;
 }
 
 export interface Package {
@@ -91,8 +92,9 @@ export interface RemotePackage extends Package {
      * Downloads the available update from the CodePush service.
      *
      * @param downloadProgressCallback An optional callback that allows tracking the progress of the update while it is being downloaded.
+     * @param pathPrefix
      */
-    download(downloadProgressCallback?: DownloadProgressCallback): Promise<LocalPackage>;
+    download(pathPrefix: string, downloadProgressCallback?: DownloadProgressCallback): Promise<LocalPackage>;
 
     /**
      * The URL at which the package is available for download.
@@ -144,6 +146,12 @@ export interface SyncOptions {
      * one or more of the default values.
      */
     rollbackRetryOptions?: RollbackRetryOptions;
+
+    /**
+     * support multiple bundle
+     * specific a package path prefix to resolve
+     */
+    pathPrefix: string;
 }
 
 export interface UpdateDialog {
@@ -250,7 +258,7 @@ declare namespace CodePush {
      * Asks the CodePush service whether the configured app deployment has an update available.
      *
      * @param deploymentKey The deployment key to use to query the CodePush server for an update.
-     * 
+     *
      * @param handleBinaryVersionMismatchCallback An optional callback for handling target binary version mismatch
      */
     function checkForUpdate(deploymentKey?: string, handleBinaryVersionMismatchCallback?: HandleBinaryVersionMismatchCallback): Promise<RemotePackage | null>;
@@ -258,9 +266,10 @@ declare namespace CodePush {
     /**
      * Retrieves the metadata for an installed update (e.g. description, mandatory).
      *
+     * @param pathPrefix The specific bundle path prefix
      * @param updateState The state of the update you want to retrieve the metadata for. Defaults to UpdateState.RUNNING.
      */
-    function getUpdateMetadata(updateState?: UpdateState) : Promise<LocalPackage|null>;
+    function getUpdateMetadata(pathPrefix: string, updateState?: UpdateState) : Promise<LocalPackage|null>;
 
     /**
      * Notifies the CodePush runtime that an installed update is considered successful.
@@ -283,7 +292,7 @@ declare namespace CodePush {
      * Note: we don’t recommend to use this method in scenarios other than that (CodePush will call
      * this method automatically when needed in other cases) as it could lead to unpredictable behavior.
      */
-    function clearUpdates(): void;
+    function clearUpdates(pathPrefix: string): void;
 
     /**
      * Immediately restarts the app.
@@ -338,30 +347,30 @@ declare namespace CodePush {
          * The app is up-to-date with the CodePush server.
          */
         UP_TO_DATE,
-            
+
         /**
          * An available update has been installed and will be run either immediately after the
          * syncStatusChangedCallback function returns or the next time the app resumes/restarts,
          * depending on the InstallMode specified in SyncOptions
          */
         UPDATE_INSTALLED,
-            
+
         /**
          * The app had an optional update which the end user chose to ignore.
          * (This is only applicable when the updateDialog is used)
          */
         UPDATE_IGNORED,
-            
+
         /**
          * The sync operation encountered an unknown error.
          */
         UNKNOWN_ERROR,
-        
+
         /**
          * There is an ongoing sync operation running which prevents the current call from being executed.
          */
         SYNC_IN_PROGRESS,
-            
+
         /**
          * The CodePush server is being queried for an update.
          */

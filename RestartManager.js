@@ -5,6 +5,7 @@ const RestartManager = (() => {
     let _allowed = true;
     let _restartInProgress = false;
     let _restartQueue = [];
+    let _pathPrefix = '';
 
     function allow() {
         log("Re-allowing restarts");
@@ -12,7 +13,7 @@ const RestartManager = (() => {
 
         if (_restartQueue.length) {
             log("Executing pending restart");
-            restartApp(_restartQueue.shift(1));
+            restartApp(_restartQueue.shift(1), _pathPrefix);
         }
     }
 
@@ -25,7 +26,8 @@ const RestartManager = (() => {
         _allowed = false;
     }
 
-    async function restartApp(onlyIfUpdateIsPending = false) {
+    async function restartApp(onlyIfUpdateIsPending = false, pathPrefix) {
+        _pathPrefix = pathPrefix;
         if (_restartInProgress) {
             log("Restart request queued until the current restart is completed");
             _restartQueue.push(onlyIfUpdateIsPending);
@@ -34,7 +36,7 @@ const RestartManager = (() => {
             _restartQueue.push(onlyIfUpdateIsPending);
         } else {
             _restartInProgress = true;
-            if (await NativeCodePush.restartApp(onlyIfUpdateIsPending)) {
+            if (await NativeCodePush.restartApp(onlyIfUpdateIsPending, pathPrefix)) {
                 // The app has already restarted, so there is no need to
                 // process the remaining queued restarts.
                 log("Restarting app");
@@ -43,7 +45,7 @@ const RestartManager = (() => {
 
             _restartInProgress = false;
             if (_restartQueue.length) {
-                restartApp(_restartQueue.shift(1));
+                restartApp(_restartQueue.shift(1), pathPrefix);
             }
         }
     }
