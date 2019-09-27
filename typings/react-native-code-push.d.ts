@@ -272,9 +272,10 @@ declare namespace CodePush {
      * Retrieves the metadata for an installed update (e.g. description, mandatory).
      *
      * @param pathPrefix The specific bundle path prefix
+     * @param bundleFileName The specific bundle file name
      * @param updateState The state of the update you want to retrieve the metadata for. Defaults to UpdateState.RUNNING.
      */
-    function getUpdateMetadata(pathPrefix: string, updateState?: UpdateState) : Promise<LocalPackage|null>;
+    function getUpdateMetadata(pathPrefix: string, bundleFileName: string, updateState?: UpdateState) : Promise<LocalPackage|null>;
 
     /**
      * Notifies the CodePush runtime that an installed update is considered successful.

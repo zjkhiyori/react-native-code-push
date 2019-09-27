@@ -4,11 +4,13 @@ public class CodePushConstants {
     public static final String ASSETS_BUNDLE_PREFIX = "assets://";
     public static final String BINARY_MODIFIED_TIME_KEY = "binaryModifiedTime";
     public static final String CODE_PUSH_FOLDER_PREFIX = "CodePush";
+    public static final String CODE_PUSH_COMMON_BUNDLE_FOLDER_PREFIX = "CommonBundle";
     public static final String CODE_PUSH_HASH_FILE_NAME = "CodePushHash";
     public static final String CODE_PUSH_OLD_HASH_FILE_NAME = "CodePushHash.json";
     public static final String CODE_PUSH_PREFERENCES = "CodePush";
     public static final String CURRENT_PACKAGE_KEY = "currentPackage";
     public static final String DEFAULT_JS_BUNDLE_NAME = "index.android.bundle";
+    public static final String DEFAULT_COMMON_JS_BUNDLE_NAME = "common.android.bundle.js";
     public static final String DIFF_MANIFEST_FILE_NAME = "hotcodepush.json";
     public static final int DOWNLOAD_BUFFER_SIZE = 1024 * 256;
     public static final String DOWNLOAD_FILE_NAME = "download.zip";

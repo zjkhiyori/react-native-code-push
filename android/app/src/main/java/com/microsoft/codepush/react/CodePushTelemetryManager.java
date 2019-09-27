@@ -1,14 +1,14 @@
 package com.microsoft.codepush.react;
 
-import android.content.Context;
-import android.content.SharedPreferences;
-
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import android.content.Context;
+import android.content.SharedPreferences;
 
 public class CodePushTelemetryManager {
     private SharedPreferences mSettings;
@@ -28,15 +28,15 @@ public class CodePushTelemetryManager {
         mSettings = applicationContext.getSharedPreferences(CodePushConstants.CODE_PUSH_PREFERENCES, 0);
     }
 
-    public WritableMap getBinaryUpdateReport(String appVersion) {
-        String previousStatusReportIdentifier = this.getPreviousStatusReportIdentifier();
+    public WritableMap getBinaryUpdateReport(String appVersion, String pathPrefix) {
+        String previousStatusReportIdentifier = this.getPreviousStatusReportIdentifier(pathPrefix);
         WritableMap reportMap = null;
         if (previousStatusReportIdentifier == null) {
-            this.clearRetryStatusReport();
+            this.clearRetryStatusReport(pathPrefix);
             reportMap = Arguments.createMap();
             reportMap.putString(APP_VERSION_KEY, appVersion);
         } else if (!previousStatusReportIdentifier.equals(appVersion)) {
-            this.clearRetryStatusReport();
+            this.clearRetryStatusReport(pathPrefix);
             reportMap = Arguments.createMap();
             if (this.isStatusReportIdentifierCodePushLabel(previousStatusReportIdentifier)) {
                 String previousDeploymentKey = this.getDeploymentKeyFromStatusReportIdentifier(previousStatusReportIdentifier);
@@ -54,10 +54,10 @@ public class CodePushTelemetryManager {
         return reportMap;
     }
 
-    public WritableMap getRetryStatusReport() {
-        String retryStatusReportString = mSettings.getString(RETRY_DEPLOYMENT_REPORT_KEY, null);
+    public WritableMap getRetryStatusReport(String pathPrefix) {
+        String retryStatusReportString = mSettings.getString(pathPrefix + "_" + RETRY_DEPLOYMENT_REPORT_KEY, null);
         if (retryStatusReportString != null) {
-            clearRetryStatusReport();
+            clearRetryStatusReport(pathPrefix);
             try {
                 JSONObject retryStatusReport = new JSONObject(retryStatusReportString);
                 return CodePushUtils.convertJsonObjectToWritable(retryStatusReport);
@@ -76,18 +76,18 @@ public class CodePushTelemetryManager {
         return reportMap;
     }
 
-    public WritableMap getUpdateReport(WritableMap currentPackage) {
+    public WritableMap getUpdateReport(WritableMap currentPackage, String pathPrefix) {
         String currentPackageIdentifier = this.getPackageStatusReportIdentifier(currentPackage);
-        String previousStatusReportIdentifier = this.getPreviousStatusReportIdentifier();
+        String previousStatusReportIdentifier = this.getPreviousStatusReportIdentifier(pathPrefix);
         WritableMap reportMap = null;
         if (currentPackageIdentifier != null) {
             if (previousStatusReportIdentifier == null) {
-                this.clearRetryStatusReport();
+                this.clearRetryStatusReport(pathPrefix);
                 reportMap = Arguments.createMap();
                 reportMap.putMap(PACKAGE_KEY, currentPackage);
                 reportMap.putString(STATUS_KEY, DEPLOYMENT_SUCCEEDED_STATUS);
             } else if (!previousStatusReportIdentifier.equals(currentPackageIdentifier)) {
-                this.clearRetryStatusReport();
+                this.clearRetryStatusReport(pathPrefix);
                 reportMap = Arguments.createMap();
                 if (this.isStatusReportIdentifierCodePushLabel(previousStatusReportIdentifier)) {
                     String previousDeploymentKey = this.getDeploymentKeyFromStatusReportIdentifier(previousStatusReportIdentifier);
@@ -108,27 +108,27 @@ public class CodePushTelemetryManager {
         return reportMap;
     }
 
-    public void recordStatusReported(ReadableMap statusReport) {
+    public void recordStatusReported(ReadableMap statusReport, String pathPrefix) {
         // We don't need to record rollback reports, so exit early if that's what was specified.
         if (statusReport.hasKey(STATUS_KEY) && DEPLOYMENT_FAILED_STATUS.equals(statusReport.getString(STATUS_KEY))) {
             return;
         }
-        
+
         if (statusReport.hasKey(APP_VERSION_KEY)) {
-            saveStatusReportedForIdentifier(statusReport.getString(APP_VERSION_KEY));
+            saveStatusReportedForIdentifier(statusReport.getString(APP_VERSION_KEY), pathPrefix);
         } else if (statusReport.hasKey(PACKAGE_KEY)) {
             String packageIdentifier = getPackageStatusReportIdentifier(statusReport.getMap(PACKAGE_KEY));
-            saveStatusReportedForIdentifier(packageIdentifier);
+            saveStatusReportedForIdentifier(packageIdentifier, pathPrefix);
         }
     }
 
-    public void saveStatusReportForRetry(ReadableMap statusReport) {
+    public void saveStatusReportForRetry(ReadableMap statusReport, String pathPrefix) {
         JSONObject statusReportJSON = CodePushUtils.convertReadableToJsonObject(statusReport);
-        mSettings.edit().putString(RETRY_DEPLOYMENT_REPORT_KEY, statusReportJSON.toString()).commit();
+        mSettings.edit().putString(pathPrefix + "_" + RETRY_DEPLOYMENT_REPORT_KEY, statusReportJSON.toString()).commit();
     }
 
-    private void clearRetryStatusReport() {
-        mSettings.edit().remove(RETRY_DEPLOYMENT_REPORT_KEY).commit();
+    private void clearRetryStatusReport(String pathPrefix) {
+        mSettings.edit().remove(pathPrefix + "_" + RETRY_DEPLOYMENT_REPORT_KEY).commit();
     }
 
     private String getDeploymentKeyFromStatusReportIdentifier(String statusReportIdentifier) {
@@ -152,8 +152,8 @@ public class CodePushTelemetryManager {
         }
     }
 
-    private String getPreviousStatusReportIdentifier() {
-        return mSettings.getString(LAST_DEPLOYMENT_REPORT_KEY, null);
+    private String getPreviousStatusReportIdentifier(String pathPrefix) {
+        return mSettings.getString(pathPrefix + "_" + LAST_DEPLOYMENT_REPORT_KEY, null);
     }
 
     private String getVersionLabelFromStatusReportIdentifier(String statusReportIdentifier) {
@@ -169,7 +169,7 @@ public class CodePushTelemetryManager {
         return statusReportIdentifier != null && statusReportIdentifier.contains(":");
     }
 
-    private void saveStatusReportedForIdentifier(String appVersionOrPackageIdentifier) {
-        mSettings.edit().putString(LAST_DEPLOYMENT_REPORT_KEY, appVersionOrPackageIdentifier).commit();
+    private void saveStatusReportedForIdentifier(String appVersionOrPackageIdentifier, String pathPrefix) {
+        mSettings.edit().putString(pathPrefix + "_" + LAST_DEPLOYMENT_REPORT_KEY, appVersionOrPackageIdentifier).commit();
     }
 }

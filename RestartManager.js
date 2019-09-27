@@ -51,6 +51,7 @@ const RestartManager = (() => {
                 // The app has already restarted, so there is no need to
                 // process the remaining queued restarts.
                 log("Restarting app");
+                // need support restart multiple times
                 return;
             }
 

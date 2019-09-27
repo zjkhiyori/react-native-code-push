@@ -9,7 +9,7 @@ import hoistStatics from 'hoist-non-react-statics';
 let NativeCodePush = require("react-native").NativeModules.CodePush;
 const PackageMixins = require("./package-mixins")(NativeCodePush);
 
-async function checkForUpdate(deploymentKey = null, pathPrefix = null, handleBinaryVersionMismatchCallback = null) {
+async function checkForUpdate(deploymentKey = null, pathPrefix = null, bundleFileName = null, handleBinaryVersionMismatchCallback = null) {
   /*
    * Before we ask the server if an update exists, we
    * need to retrieve three pieces of information from the
@@ -31,7 +31,7 @@ async function checkForUpdate(deploymentKey = null, pathPrefix = null, handleBin
   const sdk = getPromisifiedSdk(requestFetchAdapter, config);
 
   // Use dynamically overridden getCurrentPackage() during tests.
-  const localPackage = await module.exports.getCurrentPackage(pathPrefix);
+  const localPackage = await module.exports.getCurrentPackage(pathPrefix, bundleFileName);
 
   /*
    * If the app has a previously installed update, and that update
@@ -104,12 +104,12 @@ const getConfiguration = (() => {
   }
 })();
 
-async function getCurrentPackage(pathPrefix) {
-  return await getUpdateMetadata(pathPrefix, CodePush.UpdateState.LATEST);
+async function getCurrentPackage(pathPrefix, bundleFileName) {
+  return await getUpdateMetadata(pathPrefix, bundleFileName, CodePush.UpdateState.LATEST);
 }
 
-async function getUpdateMetadata(pathPrefix, updateState) {
-  let updateMetadata = await NativeCodePush.getUpdateMetadata(pathPrefix, updateState || CodePush.UpdateState.RUNNING);
+async function getUpdateMetadata(pathPrefix, bundleFileName, updateState) {
+  let updateMetadata = await NativeCodePush.getUpdateMetadata(pathPrefix, bundleFileName, updateState || CodePush.UpdateState.RUNNING);
   if (updateMetadata) {
     updateMetadata = {...PackageMixins.local, ...updateMetadata};
     updateMetadata.failedInstall = await NativeCodePush.isFailedUpdate(updateMetadata.packageHash, pathPrefix);
@@ -164,24 +164,25 @@ function getPromisifiedSdk(requestFetchAdapter, config) {
 // in the lifetime of this module instance.
 const notifyApplicationReady = (() => {
   let notifyApplicationReadyPromise;
-  return (pathPrefix) => {
-    if (!notifyApplicationReadyPromise) {
-      notifyApplicationReadyPromise = notifyApplicationReadyInternal(pathPrefix);
-    }
+  return (pathPrefix, bundleFileName) => {
+    // because of multibundle, must notify every times
+    // if (!notifyApplicationReadyPromise) {
+    //   notifyApplicationReadyPromise = notifyApplicationReadyInternal(pathPrefix);
+    // }
 
-    return notifyApplicationReadyPromise;
+    return notifyApplicationReadyInternal(pathPrefix, bundleFileName);
   };
 })();
 
-async function notifyApplicationReadyInternal(pathPrefix) {
+async function notifyApplicationReadyInternal(pathPrefix, bundleFileName) {
   await NativeCodePush.notifyApplicationReady(pathPrefix);
-  const statusReport = await NativeCodePush.getNewStatusReport(pathPrefix);
-  statusReport && tryReportStatus(pathPrefix, statusReport); // Don't wait for this to complete.
+  const statusReport = await NativeCodePush.getNewStatusReport(pathPrefix, bundleFileName);
+  statusReport && tryReportStatus(bundleFileName, pathPrefix, statusReport); // Don't wait for this to complete.
 
   return statusReport;
 }
 
-async function tryReportStatus(pathPrefix, statusReport, resumeListener) {
+async function tryReportStatus(bundleFileName, pathPrefix, statusReport, resumeListener) {
   const config = await getConfiguration();
   const previousLabelOrAppVersion = statusReport.previousLabelOrAppVersion;
   const previousDeploymentKey = statusReport.previousDeploymentKey || config.deploymentKey;
@@ -216,7 +217,7 @@ async function tryReportStatus(pathPrefix, statusReport, resumeListener) {
         if (newState !== "active") return;
         const refreshedStatusReport = await NativeCodePush.getNewStatusReport(pathPrefix);
         if (refreshedStatusReport) {
-          tryReportStatus(pathPrefix, refreshedStatusReport, resumeListener);
+          tryReportStatus(bundleFileName, pathPrefix, refreshedStatusReport, resumeListener);
         } else {
           AppState.removeEventListener("change", resumeListener);
         }
@@ -304,7 +305,15 @@ function setUpTestDependencies(testSdk, providedTestConfig, testNativeBridge) {
 // Parallel calls to sync() while one is ongoing yields CodePush.SyncStatus.SYNC_IN_PROGRESS.
 const sync = (() => {
   let syncInProgress = false;
-  const setSyncCompleted = () => { syncInProgress = false; };
+  let syncQueue = [];
+  const setSyncCompleted = () => {
+    syncInProgress = false;
+    if (syncQueue.length > 0) {
+      log(`Execute queue task, current queue: ${syncQueue.length}`);
+      let task = syncQueue.shift(1);
+      sync(task.options, task.syncStatusChangeCallback, task.downloadProgressCallback, task.handleBinaryVersionMismatchCallback)
+    }
+  };
 
   return (options = {}, syncStatusChangeCallback, downloadProgressCallback, handleBinaryVersionMismatchCallback) => {
     let syncStatusCallbackWithTryCatch, downloadProgressCallbackWithTryCatch;
@@ -332,6 +341,13 @@ const sync = (() => {
       typeof syncStatusCallbackWithTryCatch === "function"
         ? syncStatusCallbackWithTryCatch(CodePush.SyncStatus.SYNC_IN_PROGRESS)
         : log("Sync already in progress.");
+      syncQueue.push({
+        options,
+        syncStatusChangeCallback,
+        downloadProgressCallback,
+        handleBinaryVersionMismatchCallback
+      });
+      log(`Enqueue task, current queue: ${syncQueue.length}`);
       return Promise.resolve(CodePush.SyncStatus.SYNC_IN_PROGRESS);
     }
 
@@ -407,9 +423,9 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
       };
 
   try {
-    await CodePush.notifyApplicationReady(syncOptions.pathPrefix);
+    await CodePush.notifyApplicationReady(syncOptions.pathPrefix, syncOptions.bundleFileName);
     syncStatusChangeCallback(CodePush.SyncStatus.CHECKING_FOR_UPDATE);
-    const remotePackage = await checkForUpdate(syncOptions.deploymentKey, syncOptions.pathPrefix, handleBinaryVersionMismatchCallback);
+    const remotePackage = await checkForUpdate(syncOptions.deploymentKey, syncOptions.pathPrefix, syncOptions.bundleFileName, handleBinaryVersionMismatchCallback);
 
     const doDownloadAndInstall = async () => {
       syncStatusChangeCallback(CodePush.SyncStatus.DOWNLOADING_PACKAGE);
@@ -433,7 +449,7 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
           log("An update is available, but it is being ignored due to having been previously rolled back.");
       }
 
-      const currentPackage = await CodePush.getCurrentPackage(syncOptions.pathPrefix);
+      const currentPackage = await CodePush.getCurrentPackage(syncOptions.pathPrefix, syncOptions.bundleFileName);
       if (currentPackage && currentPackage.isPending) {
         syncStatusChangeCallback(CodePush.SyncStatus.UPDATE_INSTALLED);
         return CodePush.SyncStatus.UPDATE_INSTALLED;
