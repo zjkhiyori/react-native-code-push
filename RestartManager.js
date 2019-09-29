@@ -58,7 +58,7 @@ const RestartManager = (() => {
             _restartInProgress = false;
             if (_restartQueue.length) {
                 let restart = _restartQueue.shift(1);
-                restartApp(restart.onlyIfUpdateIsPending, restart.pathPrefix, restart.bundleFileName);
+                await restartApp(restart.onlyIfUpdateIsPending, restart.pathPrefix, restart.bundleFileName);
             }
         }
     }

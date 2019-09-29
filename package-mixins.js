@@ -55,7 +55,7 @@ module.exports = (NativeCodePush) => {
       await NativeCodePush.installUpdate(localPackageCopy, installMode, minimumBackgroundDuration, pathPrefix, bundleFileName);
       updateInstalledCallback && updateInstalledCallback();
       if (installMode == NativeCodePush.codePushInstallModeImmediate) {
-        RestartManager.restartApp(false, pathPrefix, bundleFileName);
+        await RestartManager.restartApp(false, pathPrefix, bundleFileName);
       } else {
         RestartManager.clearPendingRestart();
         localPackage.isPending = true; // Mark the package as pending since it hasn't been applied yet
