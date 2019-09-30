@@ -188,16 +188,16 @@ async function tryReportStatus(bundleFileName, pathPrefix, statusReport, resumeL
   const previousDeploymentKey = statusReport.previousDeploymentKey || config.deploymentKey;
   try {
     if (statusReport.appVersion) {
-      log(`Reporting binary update (${statusReport.appVersion})`);
+      log(`Reporting ${pathPrefix} binary update (${statusReport.appVersion})`);
 
       const sdk = getPromisifiedSdk(requestFetchAdapter, config);
       await sdk.reportStatusDeploy(/* deployedPackage */ null, /* status */ null, previousLabelOrAppVersion, previousDeploymentKey);
     } else {
       const label = statusReport.package.label;
       if (statusReport.status === "DeploymentSucceeded") {
-        log(`Reporting CodePush update success (${label})`);
+        log(`Reporting CodePush ${pathPrefix} update success (${label})`);
       } else {
-        log(`Reporting CodePush update rollback (${label})`);
+        log(`Reporting CodePush ${pathPrefix} update rollback (${label})`);
         await NativeCodePush.setLatestRollbackInfo(statusReport.package.packageHash, pathPrefix);
       }
 
@@ -215,7 +215,7 @@ async function tryReportStatus(bundleFileName, pathPrefix, statusReport, resumeL
     if (!resumeListener) {
       resumeListener = async (newState) => {
         if (newState !== "active") return;
-        const refreshedStatusReport = await NativeCodePush.getNewStatusReport(pathPrefix);
+        const refreshedStatusReport = await NativeCodePush.getNewStatusReport(pathPrefix, bundleFileName);
         if (refreshedStatusReport) {
           tryReportStatus(bundleFileName, pathPrefix, refreshedStatusReport, resumeListener);
         } else {

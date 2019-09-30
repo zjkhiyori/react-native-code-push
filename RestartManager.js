@@ -52,6 +52,7 @@ const RestartManager = (() => {
                 // process the remaining queued restarts.
                 log("Restarting app");
                 // need support restart multiple times
+                _restartInProgress = false;
                 return;
             }
 
