@@ -82,7 +82,14 @@ public class CodePush implements ReactPackage {
         mCurrentInstance = this;
 
         clearDebugCacheIfNeeded(null, CodePushConstants.CODE_PUSH_COMMON_BUNDLE_FOLDER_PREFIX);
-        initializeUpdateAfterRestart(CodePushConstants.CODE_PUSH_COMMON_BUNDLE_FOLDER_PREFIX);
+        File codePushRoot = new File(context.getFilesDir().getAbsolutePath(), CodePushConstants.CODE_PUSH_FOLDER_PREFIX);
+            if (codePushRoot.exists()) {
+                for (String path : codePushRoot.list()) {
+                    initializeUpdateAfterRestart(path);
+                }
+            } else {
+                initializeUpdateAfterRestart(CodePushConstants.CODE_PUSH_COMMON_BUNDLE_FOLDER_PREFIX);
+        }
     }
 
     public CodePush(String deploymentKey, Context context, boolean isDebugMode, String serverUrl) {

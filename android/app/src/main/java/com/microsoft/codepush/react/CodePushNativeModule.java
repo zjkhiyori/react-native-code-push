@@ -46,6 +46,8 @@ public class CodePushNativeModule extends ReactContextBaseJavaModule {
     private CodePushTelemetryManager mTelemetryManager;
     private CodePushUpdateManager mUpdateManager;
 
+     private final String CODE_PUSH_RESTART_APP = "CODE_PUSH_RESTART_APP";
+
     public CodePushNativeModule(ReactApplicationContext reactContext, CodePush codePush, CodePushUpdateManager codePushUpdateManager, CodePushTelemetryManager codePushTelemetryManager, SettingsManager settingsManager) {
         super(reactContext);
 
@@ -141,7 +143,7 @@ public class CodePushNativeModule extends ReactContextBaseJavaModule {
 
             // #3) Get the context creation method and fire it on the UI thread (which RN enforces)
             // Common bundle can recreate react context but buz bundle not
-            if ("CommonBundle".equals(pathPrefix)) {
+            if ("common".equals(pathPrefix)) {
                 new Handler(Looper.getMainLooper()).post(new Runnable() {
                     @Override
                     public void run() {
@@ -170,6 +172,10 @@ public class CodePushNativeModule extends ReactContextBaseJavaModule {
                 CatalystInstance catalystInstance = resolveInstanceManager().getCurrentReactContext().getCatalystInstance();
                 latestJSBundleLoader.loadScript(catalystInstance);
                 mCodePush.initializeUpdateAfterRestart(pathPrefix);
+                WritableMap map = Arguments.createMap();
+                map.putString("pathPrefix", pathPrefix);
+                map.putString("bundleFileName", bundleFileName);
+                getReactApplicationContext().getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit(CODE_PUSH_RESTART_APP, map);
             }
 
         } catch (Exception e) {
